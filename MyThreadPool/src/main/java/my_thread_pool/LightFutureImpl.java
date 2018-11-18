@@ -46,7 +46,6 @@ public class LightFutureImpl<T> implements LightFuture<T> {
         return cachedResult;
     }
 
-
     @Override
     public <R> LightFuture<R> thenApply(Function<T, R> function) {
         if (isReady()) {
@@ -80,7 +79,6 @@ public class LightFutureImpl<T> implements LightFuture<T> {
             supplier = null;
             lock_ready.notifyAll();
         }
-
     }
 }
 
