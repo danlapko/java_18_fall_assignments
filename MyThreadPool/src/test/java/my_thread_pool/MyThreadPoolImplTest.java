@@ -185,10 +185,48 @@ public class MyThreadPoolImplTest {
 
         for (int i = 384, j = 0; i < 384 + 384; i++, j = (j + 1) % 3) { // 384 1-2-3 stage tasks
             LightFuture<Integer> future = futuresList.get(i);
-            assertEquals(j+1, future.get().intValue());
+            assertEquals(j + 1, future.get().intValue());
         }
     }
 
+    @Test
+    public void shutdown() throws LightExecutionException, InterruptedException {
+        MyThreadPoolImpl myThreadPool = new MyThreadPoolImpl(20);
+        List<LightFuture<Integer>> futuresList = new ArrayList<>();
+
+        for (int i = 0; i < 512; i++) {
+            LightFuture<Integer> future = myThreadPool.submit(new SummatorSupplier(1_000_000, 2));
+            futuresList.add(future);
+            future.thenApply(new SummatorFunction(1_000_000));
+        }
+
+        Thread.sleep(500);
+
+        myThreadPool.shutdown();
+
+        Thread.sleep(500);
+
+        int nCompleted = 0;
+        int nNotCompleted = 0;
+        for (LightFuture<Integer> future : futuresList) {
+            if (future.isReady())
+                nCompleted += 1;
+            else
+                nNotCompleted += 1;
+        }
+        assertTrue(nCompleted > 0);
+        assertTrue(nNotCompleted > 0);
+
+
+        for (Thread thread : myThreadPool.getThreads()) {
+            assertFalse(thread.isAlive());
+        }
+
+        // not all tasks finished yet but get() is working OK
+        for (LightFuture<Integer> future : futuresList) {
+            assertEquals(1, future.get().intValue());
+        }
+    }
 }
 
 class SummatorSupplier implements Supplier<Integer> {
@@ -225,6 +263,8 @@ class SummatorFunction implements Function<Integer, Integer> {
         for (int i = 0; i < n; i++) {
             sum += rnd.nextInt(upperBound);
         }
+
         return (sum + 1) / (sum + 1) * (upperBound + 1);
     }
 }
+

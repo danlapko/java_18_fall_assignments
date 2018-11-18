@@ -1,5 +1,7 @@
 package my_thread_pool;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -19,8 +21,13 @@ public class MyThreadPoolImpl implements MyThreadPool {
         }
     }
 
+    List<Thread> getThreads() {
+        return workers;
+    }
+
     @Override
-    public <T> LightFuture<T> submit(Supplier<T> supplier) {
+    @NotNull
+    public <T> LightFuture<T> submit(@NotNull Supplier<T> supplier) {
 
         LightFutureImpl<T> lightFuture = new LightFutureImpl<>(supplier, this);
         synchronized (taskQueue) {
@@ -32,7 +39,7 @@ public class MyThreadPoolImpl implements MyThreadPool {
         return lightFuture;
     }
 
-    void submit(LightFutureImpl lightFuture) {
+    void submit(@NotNull LightFutureImpl lightFuture) {
         synchronized (taskQueue) {
             while (!taskQueue.offer(lightFuture)) ;
             taskQueue.notify();
@@ -60,7 +67,6 @@ public class MyThreadPoolImpl implements MyThreadPool {
                 try {
                     consumeTask();
                 } catch (InterruptedException e) {
-                    System.out.println("Thread " + Thread.currentThread().getId() + " interrupted!");
                     break;
                 }
             }
@@ -75,6 +81,10 @@ public class MyThreadPoolImpl implements MyThreadPool {
                     taskQueue.wait();
                     nextTask = taskQueue.poll();
                 }
+            }
+
+            if (Thread.interrupted()) {
+                throw new InterruptedException();
             }
 
             if (nextTask.readyToPerform()) {

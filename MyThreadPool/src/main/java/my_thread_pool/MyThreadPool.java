@@ -1,9 +1,12 @@
 package my_thread_pool;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.function.Supplier;
 
 public interface MyThreadPool {
-    <T> LightFuture<T> submit(Supplier<T> supplier);
+    @NotNull
+    <T> LightFuture<T> submit(@NotNull Supplier<T> supplier);
 
     void shutdown();
 }

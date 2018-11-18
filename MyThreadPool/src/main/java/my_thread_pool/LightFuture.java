@@ -1,5 +1,7 @@
 package my_thread_pool;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.function.Function;
 
 public interface LightFuture<T> {
@@ -7,6 +9,7 @@ public interface LightFuture<T> {
 
     T get() throws LightExecutionException;
 
-    <R> LightFuture<R> thenApply(Function<T, R> function) throws InterruptedException;
+    @NotNull
+    <R> LightFuture<R> thenApply(@NotNull Function<T, R> function) throws InterruptedException;
 
 }
