@@ -5,6 +5,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -227,6 +228,44 @@ public class MyThreadPoolImplTest {
             assertEquals(1, future.get().intValue());
         }
     }
+
+    @Test
+    public void throwLightFutureException() throws LightExecutionException, InterruptedException {
+        MyThreadPoolImpl myThreadPool = new MyThreadPoolImpl(20);
+        List<LightFuture<Integer>> futuresList = new ArrayList<>();
+
+        for (int i = 0; i < 512; i++) {
+            LightFuture<Integer> future = myThreadPool.submit(new SummatorFailSupplier(1_000_000, 2));
+            futuresList.add(future);
+            LightFuture<Integer> subFuture = future.thenApply(new SummatorFailFunction(1_000_000));
+            futuresList.add(subFuture);
+        }
+
+        Thread.sleep(500);
+
+        int nCompleted = 0;
+        int nNotCompleted = 0;
+        for (LightFuture<Integer> future : futuresList) {
+            if (future.isReady())
+                nCompleted += 1;
+            else
+                nNotCompleted += 1;
+        }
+        assertTrue(nCompleted > 0);
+        assertTrue(nNotCompleted > 0);
+
+        // not all tasks finished yet but get() is working OK
+        for (int i = 0; i < futuresList.size(); i++) {
+
+            LightFuture<Integer> future = futuresList.get(i);
+            try {
+                int result = future.get().intValue();
+                assertEquals(i % 2 + 1, result);
+            } catch (LightExecutionException ex) {
+                assertTrue(ex.getCause() instanceof ArithmeticException);
+            }
+        }
+    }
 }
 
 class SummatorSupplier implements Supplier<Integer> {
@@ -268,3 +307,46 @@ class SummatorFunction implements Function<Integer, Integer> {
     }
 }
 
+class SummatorFailSupplier implements Supplier<Integer> {
+    private final int n;
+    private final int upperBound;
+    private final Random rnd = new Random();
+
+    SummatorFailSupplier(int n, int upperBound) {
+        this.n = n;
+        this.upperBound = upperBound;
+    }
+
+    @Override
+    public Integer get() {
+        int sum = 0;
+        for (int i = 0; i < n; i++) {
+            sum += rnd.nextInt(upperBound);
+        }
+        if (rnd.nextFloat() > 0.9) {
+            sum += sum / 0;
+        }
+        return (sum + 1) / (sum + 1);
+    }
+}
+
+class SummatorFailFunction implements Function<Integer, Integer> {
+    private final Random rnd = new Random();
+    private final int n;
+
+    SummatorFailFunction(int n) {
+        this.n = n;
+    }
+
+    @Override
+    public Integer apply(Integer upperBound) {
+        int sum = 0;
+        for (int i = 0; i < n; i++) {
+            sum += rnd.nextInt(upperBound);
+        }
+        if (rnd.nextFloat() > 0.9) {
+            sum += sum / 0;
+        }
+        return (sum + 1) / (sum + 1) * (upperBound + 1);
+    }
+}

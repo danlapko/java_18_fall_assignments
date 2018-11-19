@@ -1,6 +1,7 @@
 package my_thread_pool;
 
 import org.jetbrains.annotations.*;
+
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -13,14 +14,14 @@ public class LightFutureImpl<T> implements LightFuture<T> {
     private volatile LightExecutionException exception = null;
 
 
-    LightFutureImpl(@NotNull Supplier<T> supplier,@NotNull MyThreadPoolImpl owner) {
+    LightFutureImpl(@NotNull Supplier<T> supplier, @NotNull MyThreadPoolImpl owner) {
         this.owner = owner;
         this.supplier = supplier;
         this.lock_ready = new Object();
         parentTask = null;
     }
 
-    private LightFutureImpl(@NotNull Supplier<T> supplier,@NotNull MyThreadPoolImpl owner,@NotNull LightFuture parentTask) {
+    private LightFutureImpl(@NotNull Supplier<T> supplier, @NotNull MyThreadPoolImpl owner, @NotNull LightFuture parentTask) {
         this.owner = owner;
         this.supplier = supplier;
         this.lock_ready = new Object();
@@ -40,10 +41,15 @@ public class LightFutureImpl<T> implements LightFuture<T> {
 
     @Override
     public T get() throws LightExecutionException {
+
+        if(!readyToPerform()) {
+            parentTask.get();
+        }
+        perform();
+
         if (exception != null) {
             throw exception;
         }
-        perform();
         return cachedResult;
     }
 
@@ -67,8 +73,11 @@ public class LightFutureImpl<T> implements LightFuture<T> {
     }
 
     synchronized void perform() {
-        try {
+        if (exception != null) {
+            return;
+        }
 
+        try {
             if (supplier != null) {
                 cachedResult = supplier.get();
             }
